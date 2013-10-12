@@ -22,8 +22,9 @@
 #include <stdlib.h>
 #include <alloca.h>
 
-#define KRYOFLUX_VID 0x03eb
-#define KRYOFLUX_PID 0x6124
+#define KRYOFLUX_VID       0x03eb
+#define KRYOFLUX_PID       0x6124
+#define KRYOFLUX_INTERFACE 1
 
 #define FW_FILENAME "firmware.bin"
 
@@ -42,14 +43,29 @@
 #define REQUEST_INFO      0x81
 
 static usbapi_handle usbhdl = USBAPI_INVALID_HANDLE;
+static bool usbifcclaimed = false;
 
-static void device_exit(void)
+static void device_close(void)
 {
   if (usbhdl != USBAPI_INVALID_HANDLE) {
+    if (usbifcclaimed) {
+      usbapi_release_interface(usbhdl, KRYOFLUX_INTERFACE);
+      usbifcclaimed = false;
+    }
     usbapi_close(usbhdl);
     usbhdl = USBAPI_INVALID_HANDLE;
   }
+}
+
+static void device_exit(void)
+{
+  device_close();
   usbapi_exit();
+}
+
+static bool device_claim_interface(void)
+{
+  return (usbifcclaimed = usbapi_claim_interface(usbhdl, KRYOFLUX_INTERFACE));
 }
 
 static bool device_send_bl_string(const char *s)
@@ -246,7 +262,8 @@ bool device_init(void)
     return false;
   atexit(device_exit);
   usbhdl = usbapi_open(KRYOFLUX_VID, KRYOFLUX_PID, 0);
-  if (usbhdl == USBAPI_INVALID_HANDLE)
+  if (usbhdl == USBAPI_INVALID_HANDLE ||
+      !device_claim_interface())
     return false;
 
   if (device_check_fw_present()) {
@@ -257,11 +274,11 @@ bool device_init(void)
       return false;
 
     /* Need to reopen the device after renumeration */
-    usbapi_close(usbhdl);
-    usbhdl = USBAPI_INVALID_HANDLE;
+    device_close();
     sleep(1);
     usbhdl = usbapi_open(KRYOFLUX_VID, KRYOFLUX_PID, 0);
-    if (usbhdl == USBAPI_INVALID_HANDLE)
+    if (usbhdl == USBAPI_INVALID_HANDLE ||
+	!device_claim_interface())
       return false;
 
     if (!device_check_fw_present()) {

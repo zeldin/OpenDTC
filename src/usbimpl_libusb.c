@@ -80,6 +80,28 @@ void usbapi_close(usbapi_handle hdl)
   libusb_close(hdl);
 }
 
+bool usbapi_claim_interface(usbapi_handle hdl, int ifc)
+{
+  int ret = libusb_claim_interface(hdl, ifc);
+  if (ret) {
+    fprintf(stderr, "Claim interface failed: %s.\n", libusb_error_name(ret));
+    return false;
+  } else {
+    return true;
+  }
+}
+
+bool usbapi_release_interface(usbapi_handle hdl, int ifc)
+{
+  int ret = libusb_release_interface(hdl, ifc);
+  if (ret) {
+    fprintf(stderr, "Release interface failed: %s.\n", libusb_error_name(ret));
+    return false;
+  } else {
+    return true;
+  }
+}
+
 bool usbapi_sync_bulk_out(usbapi_handle hdl, int ep, uint8_t *buf,
 				 uint32_t len, unsigned timeout)
 {

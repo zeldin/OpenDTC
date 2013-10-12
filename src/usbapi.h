@@ -26,6 +26,8 @@ extern bool usbapi_init(void);
 extern void usbapi_exit(void);
 extern usbapi_handle usbapi_open(uint16_t vid, uint16_t pid, unsigned num);
 extern void usbapi_close(usbapi_handle hdl);
+extern bool usbapi_claim_interface(usbapi_handle hdl, int ifc);
+extern bool usbapi_release_interface(usbapi_handle hdl, int ifc);
 extern bool usbapi_sync_bulk_out(usbapi_handle hdl, int ep, uint8_t *buf,
 				 uint32_t len, unsigned timeout);
 extern int32_t usbapi_sync_bulk_in(usbapi_handle hdl, int ep, uint8_t *buf,
