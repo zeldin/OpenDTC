@@ -218,6 +218,8 @@ static uint8_t *device_load_firmware(uint32_t *psize)
       allocsize = (size? size + (size>>1) : 8192);
       newbuf = realloc(buf, allocsize);
       if (newbuf == NULL) {
+	fprintf(stderr, "Out of memory!\n");
+	fclose(f);
 	free(buf);
 	return NULL;
       } else {
@@ -228,10 +230,12 @@ static uint8_t *device_load_firmware(uint32_t *psize)
     size += l;
     if (ferror(f)) {
       perror(filename);
+      fclose(f);
       free(buf);
       return NULL;
     }
   } while (!feof(f));
+  fclose(f);
   *psize = size;
   return buf;
 }
