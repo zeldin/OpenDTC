@@ -79,3 +79,57 @@ void usbapi_close(usbapi_handle hdl)
 {
   libusb_close(hdl);
 }
+
+bool usbapi_sync_bulk_out(usbapi_handle hdl, int ep, uint8_t *buf,
+				 uint32_t len, unsigned timeout)
+{
+  int xferred = 0;
+  int ret = libusb_bulk_transfer(hdl,
+				 (ep & LIBUSB_ENDPOINT_ADDRESS_MASK) |
+				 LIBUSB_ENDPOINT_OUT,
+				 buf, len, &xferred, timeout);
+  if (!ret) {
+    if (xferred == len)
+      return true;
+    fprintf(stderr, "Bulk out truncated transfer: %u != %u\n",
+	    (unsigned)xferred, (unsigned)len);
+    return false;
+  } else {
+    fprintf(stderr, "Bulk out transfer failed: %s.\n", libusb_error_name(ret));
+    return false;
+  }
+}
+
+int32_t usbapi_sync_bulk_in(usbapi_handle hdl, int ep, uint8_t *buf,
+			    uint32_t len, unsigned timeout)
+{
+  int xferred = 0;
+  int ret = libusb_bulk_transfer(hdl,
+				 (ep & LIBUSB_ENDPOINT_ADDRESS_MASK) |
+				 LIBUSB_ENDPOINT_IN,
+				 buf, len, &xferred, timeout);
+  if (!ret)
+    return xferred;
+  else {
+    fprintf(stderr, "Bulk in transfer failed: %s.\n", libusb_error_name(ret));
+    return -1;
+  }
+}
+
+int32_t usbapi_sync_control_in(usbapi_handle hdl, uint8_t reqtype,
+			       uint8_t request, uint16_t value, uint16_t index,
+			       uint8_t *buf, uint32_t len, unsigned timeout,
+			       bool silent_nak)
+{
+  int ret = libusb_control_transfer(hdl, reqtype|LIBUSB_ENDPOINT_IN,
+				    request, value, index,
+				    buf, len, timeout);
+  if (ret >= 0)
+    return ret;
+  else if(silent_nak && ret == LIBUSB_ERROR_PIPE) {
+    return -2;
+  } else {
+    fprintf(stderr, "Bulk in transfer failed: %s.\n", libusb_error_name(ret));
+    return -1;
+  }
+}
