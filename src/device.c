@@ -33,7 +33,13 @@
 
 #define REQTYPE_IN_VENDOR_OTHER 0xc3
 
-#define REQUEST_STATUS 0x80
+#define REQUEST_RESET     0x05
+#define REQUEST_DEVICE    0x06
+#define REQUEST_DENSITY   0x08
+#define REQUEST_MIN_TRACK 0x0c
+#define REQUEST_MAX_TRACK 0x0d
+#define REQUEST_STATUS    0x80
+#define REQUEST_INFO      0x81
 
 static usbapi_handle usbhdl = USBAPI_INVALID_HANDLE;
 
@@ -87,6 +93,11 @@ static int32_t device_control_in(uint8_t request, uint16_t index, bool silent)
 static bool device_try_check_status(void)
 {
   return device_control_in(REQUEST_STATUS, 0, true)>=0;
+}
+
+static bool device_do_request(uint8_t request, uint16_t index)
+{
+  return device_control_in(request, index, false)>=0;
 }
 
 static bool device_check_fw_present(void)
@@ -221,6 +232,14 @@ static bool device_install_firmware(void)
   return ret;
 }
 
+static bool device_reset(void)
+{
+  return
+    device_do_request(REQUEST_RESET, 0) &&
+    device_do_request(REQUEST_INFO, 1) &&
+    device_do_request(REQUEST_INFO, 2);
+}
+
 bool device_init(void)
 {
   if (!usbapi_init())
@@ -251,5 +270,14 @@ bool device_init(void)
     }
   }
 
-  return true;
+  return device_reset();
+}
+
+bool device_configure(int device, int density, int min_track, int max_track)
+{
+  return
+    device_do_request(REQUEST_DEVICE, device) &&
+    device_do_request(REQUEST_DENSITY, density) &&
+    device_do_request(REQUEST_MIN_TRACK, min_track) &&
+    device_do_request(REQUEST_MAX_TRACK, max_track);
 }

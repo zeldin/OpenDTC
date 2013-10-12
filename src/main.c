@@ -23,6 +23,7 @@ int main (int argc, char *argv[])
 {
   if (!device_init())
     return 1;
-  printf("Hello, world!\n");
+  if (!device_configure(0, 0, 0, 83))
+    return 1;
   return 0;
 }

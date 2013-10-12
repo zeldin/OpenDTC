@@ -22,5 +22,7 @@
 # include <stdbool.h>
 
 extern bool device_init(void);
+extern bool device_configure(int device, int density,
+			     int min_track, int max_track);
 
 #endif /* OPENDTC_DEVICE_H */
