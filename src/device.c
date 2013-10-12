@@ -1,4 +1,4 @@
-/* main.c -- main function
+/* device.c -- device operations
 
    Copyright 2013 Marcus Comstedt
 
@@ -16,13 +16,32 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
-#include <device.h>
+#include <usbapi.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-int main (int argc, char *argv[])
+#define KRYOFLUX_VID 0x03eb
+#define KRYOFLUX_PID 0x6124
+
+static usbapi_handle usbhdl = USBAPI_INVALID_HANDLE;
+
+static void device_exit(void)
 {
-  if (!device_init())
-    return 1;
-  printf("Hello, world!\n");
-  return 0;
+  if (usbhdl != USBAPI_INVALID_HANDLE) {
+    usbapi_close(usbhdl);
+    usbhdl = USBAPI_INVALID_HANDLE;
+  }
+  usbapi_exit();
+}
+
+bool device_init(void)
+{
+  if (!usbapi_init())
+    return false;
+  atexit(device_exit);
+  usbhdl = usbapi_open(KRYOFLUX_VID, KRYOFLUX_PID, 0);
+  if (usbhdl == USBAPI_INVALID_HANDLE)
+    return false;
+
+  return true;
 }

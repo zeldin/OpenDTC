@@ -1,11 +1,11 @@
-/* main.c -- main function
+/* usbimpl.h: Select an USB implementation
 
    Copyright 2013 Marcus Comstedt
 
-   This program is free software: you can redistribute it and/or modify
+   This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,14 +15,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#include <config.h>
-#include <device.h>
-#include <stdio.h>
+#ifndef OPENDTC_USBIMPL_H
+# define OPENDTC_USBIMPL_H
 
-int main (int argc, char *argv[])
-{
-  if (!device_init())
-    return 1;
-  printf("Hello, world!\n");
-  return 0;
-}
+#include "usbimpl_libusb.h"
+
+#endif /* OPENDTC_USBIMPL_H */
