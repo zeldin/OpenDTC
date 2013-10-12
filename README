@@ -1,0 +1,12 @@
+This is the README file for the OpenDTC distribution.
+OpenDTC is an open source replacement for the closed source KryoFlux
+DiskTool Console.  It only supports output in the raw stream format, but
+it does run on some hardware where the original dtc does not work.
+
+  Copyright (C) 2013 Marcus Comstedt
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.
+
+See the files ./INSTALL* for building and installation instructions.
