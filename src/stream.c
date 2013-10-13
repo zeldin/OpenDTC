@@ -25,21 +25,116 @@
 static FILE *stream_file = NULL;
 
 static bool stream_complete = false, stream_failed = false;
+static bool result_found = false;
+static unsigned long current_streampos;
 
-static void stream_validate_data(const uint8_t *data, uint32_t len)
+static bool stream_validate_data(const uint8_t *data, uint32_t len)
 {
-  if (*data == 0xd) {
-    if (len == 7 && data[1] == 0xd) {
-      int i;
-      for (i = 0; i<7; i++)
-	if (data[i] != 0xd)
-	  break;
-      if (i == 7) {
-	stream_complete = true;
-	return;
+  while (len > 0) {
+    if (*data <= 7) {
+      if (len < 2) {
+	fprintf(stderr, "No room for low 8-bits in cell value\n");
+	return false;
       }
+      /* Value */
+      data += 2;
+      len -= 2;
+      current_streampos += 2;
+    } else if (*data >= 0xe) {
+      /* Sample */
+      data ++;
+      --len;
+      current_streampos ++;
+    } else switch(*data) {
+    default:
+      /* Nop1-Nop3 */
+      ; int noffset = *data - 7;
+      if (len < noffset) {
+	fprintf(stderr, "No room for Nop\n");
+	return false;
+      }
+      current_streampos += noffset;
+      data += noffset;
+      len -= noffset;
+      break;
+    case 0x0b:
+      /* Overflow16 */
+      data ++;
+      --len;
+      current_streampos ++;
+      break;
+    case 0x0c:
+      if (len < 3) {
+	fprintf(stderr, "No room for 16 bit cell value\n");
+	return false;
+      }
+      /* Value16 */
+      data += 3;
+      len -= 3;
+      current_streampos += 3;
+      break;
+    case 0x0d:
+      if (len < 4) {
+	fprintf(stderr, "No room for OOB header\n");
+	return false;
+      }
+      unsigned type = data[1];
+      unsigned size = data[2] | (data[3] << 8);
+      if (type == 0x0d && size == 0x0d0d) {
+	if (!result_found) {
+	  fprintf(stderr, "End of data marker encountered before end of stream marker\n");
+	  return false;
+	}
+	stream_complete = true;
+	return true;
+      }
+      if (len-4 < size) {
+	fprintf(stderr, "No room for OOB data\n");
+	return false;
+      }
+      if (type == 1 || type == 3) {
+	unsigned long streampos;
+	if (size < 4) {
+	  fprintf(stderr, "No room for stream position\n");
+	  return false;
+	}
+	streampos = data[4] | (data[5]<<8) | (data[6]<<16) | (data[7]<<24);
+	if (streampos != current_streampos) {
+	  fprintf(stderr, "Bad stream position %lu != %lu\n",
+		  streampos, current_streampos);
+	  return false;
+	}
+      }
+      if (type == 3) {
+	unsigned long result;
+	if (size < 8) {
+	  fprintf(stderr, "No room for result value\n");
+	  return false;
+	}
+	result_found = true;
+	result = data[8] | (data[9]<<8) | (data[10]<<16) | (data[11]<<24);
+	if (result != 0) {
+	  switch(result) {
+	  case 1:
+	    fprintf(stderr, "Buffering problem - data transfer delivery "
+		    "to host could not keep up with disk read\n");
+	    break;
+	  case 2:
+	    fprintf(stderr, "No index signal detected\n");
+	    break;
+	  default:
+	    fprintf(stderr, "Unknown stream end result %lu\n", result);
+	    break;
+	  }
+	  return false;
+	}
+      }
+      data += size+4;
+      len -= size+4;
+      break;
     }
   }
+  return true;
 }
 
 static bool stream_callback(const uint8_t *data, uint32_t len)
@@ -52,7 +147,10 @@ static bool stream_callback(const uint8_t *data, uint32_t len)
   }
   if (!len)
     return true;
-  stream_validate_data(data, len);
+  if (!stream_validate_data(data, len)) {
+    stream_failed = true;
+    return false;
+  }
   if (fwrite(data, 1, len, stream_file) != len) {
     fprintf(stderr, "Failed to write data to file\n");
     stream_failed = true;
@@ -64,6 +162,8 @@ static bool stream_callback(const uint8_t *data, uint32_t len)
 static bool stream_device_capture(void)
 {
   stream_complete = stream_failed = false;
+  result_found = false;
+  current_streampos = 0;
 
   if (!device_start_async_read(stream_callback))
     return false;
