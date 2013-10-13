@@ -126,7 +126,9 @@ static int32_t device_control_in(uint8_t request, uint16_t index, bool silent)
   if (l<0)
     return l;
   buf[(l>=sizeof(buf)? sizeof(buf)-1:l)] = 0;
+#ifdef DEVICE_DEBUG
   printf("Device says: %s\n", buf);
+#endif
   p = strchr((char *)buf, '=');
   if (p)
     p++;
@@ -162,7 +164,9 @@ static bool device_check_fw_present(void)
 static bool device_query_fw(const char *id, char *buf, unsigned size)
 {
   if (device_send_bl_string(id) && device_recv_bl_string(buf, 512)) {
+#ifdef DEVICE_DEBUG
     printf("Device response to %s: %s", id, buf);
+#endif
     return true;
   } else
     return false;
@@ -304,9 +308,13 @@ bool device_init(void)
     return false;
 
   if (device_check_fw_present()) {
+#ifdef DEVICE_DEBUG
     printf("Device has FW already\n");
+#endif
   } else {
+#ifdef DEVICE_DEBUG
     printf("No FW uploaded in device\n");
+#endif
     if (!device_install_firmware())
       return false;
 
