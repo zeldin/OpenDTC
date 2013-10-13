@@ -27,19 +27,28 @@ static FILE *stream_file = NULL;
 static bool stream_complete = false, stream_failed = false;
 static bool result_found = false;
 static unsigned long current_streampos;
+static uint32_t skipcount = 0;
 
 static bool stream_validate_data(const uint8_t *data, uint32_t len)
 {
+  if (skipcount) {
+    uint32_t n = (skipcount > len? len : skipcount);
+    skipcount -= n;
+    data += n;
+    len -= n;
+    current_streampos += n;
+  }
   while (len > 0) {
     if (*data <= 7) {
-      if (len < 2) {
-	fprintf(stderr, "No room for low 8-bits in cell value\n");
-	return false;
-      }
       /* Value */
+      if (len < 2) {
+	skipcount += 2-len;
+	current_streampos += len;
+	return true;
+      }
+      current_streampos += 2;
       data += 2;
       len -= 2;
-      current_streampos += 2;
     } else if (*data >= 0xe) {
       /* Sample */
       data ++;
@@ -50,8 +59,9 @@ static bool stream_validate_data(const uint8_t *data, uint32_t len)
       /* Nop1-Nop3 */
       ; int noffset = *data - 7;
       if (len < noffset) {
-	fprintf(stderr, "No room for Nop\n");
-	return false;
+	skipcount += noffset-len;
+	current_streampos += len;
+	return true;
       }
       current_streampos += noffset;
       data += noffset;
@@ -64,11 +74,12 @@ static bool stream_validate_data(const uint8_t *data, uint32_t len)
       current_streampos ++;
       break;
     case 0x0c:
-      if (len < 3) {
-	fprintf(stderr, "No room for 16 bit cell value\n");
-	return false;
-      }
       /* Value16 */
+      if (len < 3) {
+	skipcount += 3-len;
+	current_streampos += len;
+	return true;
+      }
       data += 3;
       len -= 3;
       current_streampos += 3;
@@ -164,6 +175,7 @@ static bool stream_device_capture(void)
   stream_complete = stream_failed = false;
   result_found = false;
   current_streampos = 0;
+  skipcount = 0;
 
   if (!device_start_async_read(stream_callback))
     return false;
