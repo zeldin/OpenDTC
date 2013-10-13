@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 static FILE *stream_file = NULL;
 
@@ -192,6 +193,28 @@ static bool stream_device_capture(void)
   return true;
 }
 
+static bool stream_write_preamble(void)
+{
+  uint8_t buf[128];
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  unsigned l;
+  snprintf((char *)buf+4, sizeof(buf)-4,
+	   "host_date=%04d.%02d.%02d, host_time=%02d:%02d:%02d",
+	   tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+	   tm->tm_hour, tm->tm_min, tm->tm_sec);
+  l = strlen((char *)buf+4)+1;
+  buf[0] = 0x0d;
+  buf[1] = 4;
+  buf[2] = l;
+  buf[3] = 0;
+  if (fwrite(buf, 1, l+4, stream_file) != l+4) {
+    fprintf(stderr, "Failed to write data to file\n");
+    return false;
+  }
+  return true;
+}
+
 bool stream_capture(const char *filename)
 {
   bool r;
@@ -200,7 +223,9 @@ bool stream_capture(const char *filename)
     perror(filename);
     return false;
   }
-  r = stream_device_capture();
+  r = stream_write_preamble();
+  if (r)
+    r = stream_device_capture();
   if (fclose(stream_file)) {
     perror(filename);
     r = false;
