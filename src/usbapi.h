@@ -37,5 +37,11 @@ extern int32_t usbapi_sync_control_in(usbapi_handle hdl, uint8_t reqtype,
 				      uint16_t index, uint8_t *buf,
 				      uint32_t len, unsigned timeout,
 				      bool silent_nak);
+extern usbapi_async_handle usbapi_async_bulk_in(usbapi_handle hdl, int ep,
+						int bufcnt, uint32_t bufsize,
+						unsigned timeout,
+						bool (*callback)(const uint8_t *, uint32_t));
+extern bool usbapi_async_finish(usbapi_handle hdl, usbapi_async_handle snchdl);
+extern bool usbapi_async_cancel(usbapi_handle hdl, usbapi_async_handle async);
 
 #endif /* OPENDTC_USBAPI_H */

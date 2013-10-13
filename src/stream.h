@@ -1,4 +1,4 @@
-/* usbimpl_libusb.h: USB implementation using libusb
+/* stream.h: stream operations
 
    Copyright 2013 Marcus Comstedt
 
@@ -15,15 +15,12 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#ifndef OPENDTC_USBIMPL_LIBUSB_H
-# define OPENDTC_USBIMPL_LIBUSB_H
+#ifndef OPENDTC_STREAM_H
+# define OPENDTC_STREAM_H
 
-# include <libusb.h>
+# include <stdint.h>
+# include <stdbool.h>
 
-typedef struct libusb_device_handle *usbapi_handle;
-typedef struct usbimpl_libusb_async_struct *usbapi_async_handle;
+extern bool stream_capture(const char *filename);
 
-#define USBAPI_INVALID_HANDLE       NULL
-#define USBAPI_INVALID_ASYNC_HANDLE NULL
-
-#endif /* OPENDTC_USBIMPL_LIBUSB_H */
+#endif /* OPENDTC_STREAM_H */

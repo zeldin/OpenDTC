@@ -17,6 +17,7 @@
 
 #include <config.h>
 #include <usbapi.h>
+#include <device.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -32,11 +33,18 @@
 #define FW_WRITE_CHUNK_SIZE 16384
 #define FW_READ_CHUNK_SIZE  6400
 
+#define ASYNC_READ_BUFFER_SIZE  6400
+#define ASYNC_READ_BUFFER_COUNT 4
+
 #define REQTYPE_IN_VENDOR_OTHER 0xc3
 
 #define REQUEST_RESET     0x05
 #define REQUEST_DEVICE    0x06
+#define REQUEST_MOTOR     0x07
 #define REQUEST_DENSITY   0x08
+#define REQUEST_SIDE      0x09
+#define REQUEST_TRACK     0x0a
+#define REQUEST_STREAM    0x0b
 #define REQUEST_MIN_TRACK 0x0c
 #define REQUEST_MAX_TRACK 0x0d
 #define REQUEST_STATUS    0x80
@@ -44,10 +52,24 @@
 
 static usbapi_handle usbhdl = USBAPI_INVALID_HANDLE;
 static bool usbifcclaimed = false;
+static bool motor_on = false, stream_on = false;
+static usbapi_async_handle asynchdl = USBAPI_INVALID_ASYNC_HANDLE;
 
 static void device_close(void)
 {
   if (usbhdl != USBAPI_INVALID_HANDLE) {
+    if (stream_on) {
+      device_stream_off();
+      stream_on = false;
+    }
+    if (asynchdl != USBAPI_INVALID_ASYNC_HANDLE) {
+      usbapi_async_cancel(usbhdl, asynchdl);
+      device_finish_async_read();
+    }
+    if (motor_on) {
+      device_motor_off();
+      motor_on = false;
+    }
     if (usbifcclaimed) {
       usbapi_release_interface(usbhdl, KRYOFLUX_INTERFACE);
       usbifcclaimed = false;
@@ -98,11 +120,22 @@ static int32_t device_control_in(uint8_t request, uint16_t index, bool silent)
 {
   uint8_t buf[512];
   int32_t l;
+  char *p, *e;
   l = usbapi_sync_control_in(usbhdl, REQTYPE_IN_VENDOR_OTHER, request,
 			     0, index, buf, sizeof(buf), 5000, silent);
   if (l<0)
     return l;
+  buf[(l>=sizeof(buf)? sizeof(buf)-1:l)] = 0;
   printf("Device says: %s\n", buf);
+  p = strchr((char *)buf, '=');
+  if (p)
+    p++;
+  else
+    p = "";
+  if (strtol(p, &e, 10) != (index & 0xff) || e == p) {
+    fprintf(stderr, "Device request failed\n");
+    return -1;
+  }
   return l;
 }
 
@@ -302,3 +335,59 @@ bool device_configure(int device, int density, int min_track, int max_track)
     device_do_request(REQUEST_MIN_TRACK, min_track) &&
     device_do_request(REQUEST_MAX_TRACK, max_track);
 }
+
+bool device_motor_on(int side, int track)
+{
+  motor_on = true;
+
+  return
+    device_do_request(REQUEST_MOTOR, 1) &&
+    device_do_request(REQUEST_SIDE, side) &&
+    device_do_request(REQUEST_TRACK, track);
+}
+
+bool device_motor_off(void)
+{
+  if (device_do_request(REQUEST_MOTOR, 0)) {
+    motor_on = false;
+    return true;
+  } else
+    return false;
+}
+
+bool device_stream_on(void)
+{
+  stream_on = true;
+
+  return device_do_request(REQUEST_STREAM, 0x601);
+}
+
+bool device_stream_off(void)
+{
+  if (device_do_request(REQUEST_STREAM, 0)) {
+    stream_on = false;
+    return true;
+  } else
+    return false;
+}
+
+bool device_start_async_read(bool (*callback)(const uint8_t *, uint32_t))
+{
+  asynchdl = usbapi_async_bulk_in(usbhdl, 2, ASYNC_READ_BUFFER_COUNT,
+				  ASYNC_READ_BUFFER_SIZE, 2000, callback);
+  if (asynchdl == USBAPI_INVALID_ASYNC_HANDLE)
+    return false;
+
+  return true;
+}
+
+bool device_finish_async_read(void)
+{
+  bool r = true;
+  if (asynchdl != USBAPI_INVALID_ASYNC_HANDLE) {
+    r = usbapi_async_finish(usbhdl, asynchdl);
+    asynchdl = USBAPI_INVALID_ASYNC_HANDLE;
+  }
+  return r;
+}
+

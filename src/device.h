@@ -24,5 +24,11 @@
 extern bool device_init(void);
 extern bool device_configure(int device, int density,
 			     int min_track, int max_track);
+extern bool device_motor_on(int side, int track);
+extern bool device_motor_off(void);
+extern bool device_stream_on(void);
+extern bool device_stream_off(void);
+extern bool device_start_async_read(bool (*callback)(const uint8_t *, uint32_t));
+extern bool device_finish_async_read(void);
 
 #endif /* OPENDTC_DEVICE_H */
